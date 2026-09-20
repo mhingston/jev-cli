@@ -1,0 +1,29 @@
+{
+  "name": "@mhingston5/jev-cli",
+  "version": "0.1.0",
+  "description": "Provider-agnostic CLI and client for TypeSafe AI Jev",
+  "license": "MIT",
+  "author": "Mark Hingston",
+  "repository": {"type": "git", "url": "git+https://github.com/mhingston/jev-cli.git"},
+  "bugs": {"url": "https://github.com/mhingston/jev-cli/issues"},
+  "homepage": "https://github.com/mhingston/jev-cli#readme",
+  "keywords": ["jev", "typesafe", "system-one", "typed-decisions", "cli"],
+  "engines": {"node": ">=20"},
+  "files": ["dist", "README.md", "LICENSE"],
+  "publishConfig": {"access": "public"},
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {".": {"types": "./dist/index.d.ts", "import": "./dist/index.js"}},
+  "bin": {"jev": "dist/cli.js"},
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "pack:check": "npm pack --dry-run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {"@typesafe-ai/sdk": "^0.6.0"},
+  "devDependencies": {"@types/node": "^22.0.0", "typescript": "^5.7.0", "vitest": "^2.1.0"}
+}
