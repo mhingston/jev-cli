@@ -4,16 +4,9 @@ import type { SystemOneLikeClient, SystemOneRequest, SystemOneResponse } from ".
 export const JEV_PROVIDERS = ["typesafe", "vercel", "cloudflare", "custom"] as const;
 export type JevProvider = typeof JEV_PROVIDERS[number];
 
-export const DECISION_PROVIDERS = JEV_PROVIDERS;
-export type DecisionProvider = JevProvider;
-
-/** @deprecated Prefer provider. Kept for consumers migrating from jev-agent-browser. */
-export type DecisionTransport = "typesafe" | "fetch";
 
 export interface JevClientOptions {
   provider?: JevProvider;
-  /** @deprecated Prefer provider. */
-  transport?: DecisionTransport;
   apiKey?: string;
   accountId?: string;
   endpoint?: string;
@@ -23,7 +16,6 @@ export interface JevClientOptions {
   fetchImpl?: typeof fetch;
 }
 
-export type DecisionClientOptions = JevClientOptions;
 
 export const DEFAULT_ENDPOINT = "https://api.typesafe.ai/v1/systemone";
 export const VERCEL_ENDPOINT = "https://ai-gateway.vercel.sh/typesafe/v1/systemone";
@@ -52,14 +44,11 @@ function errorMessage(body: any): string {
 
 export function resolveJevProvider(options: JevClientOptions = {}): JevProvider {
   if (options.provider) return options.provider;
-  if (options.transport === "fetch") return "custom";
-  if (options.transport === "typesafe") return "typesafe";
   const env = process.env.JEV_PROVIDER?.trim().toLowerCase();
   if (env && JEV_PROVIDERS.includes(env as JevProvider)) return env as JevProvider;
   return "typesafe";
 }
 
-export const resolveDecisionProvider = resolveJevProvider;
 
 export function defaultModelForProvider(provider: JevProvider): string {
   const override = process.env.JEV_MODEL?.trim();
@@ -243,4 +232,3 @@ export function createJevClient(options: JevClientOptions = {}): SystemOneLikeCl
   return new TypeSafeCompatibleJevClient(provider, options);
 }
 
-export const createDecisionClient = createJevClient;
