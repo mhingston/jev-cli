@@ -117,15 +117,6 @@ console.log(response.answers);
 
 For dynamically constructed question definitions, `buildQuestion()` and `buildQuestions()` accept JSON-friendly specs. The package also exports `SystemOneLikeClient` so higher-level libraries can inject deterministic fixture clients in tests.
 
-### Migration compatibility
-
-The initial release exports aliases so `jev-agent-browser` can move without duplicate provider code:
-
-- `createDecisionClient` → `createJevClient`
-- `DECISION_PROVIDERS` → `JEV_PROVIDERS`
-- `DecisionProvider` → `JevProvider`
-
-The legacy `transport: "typesafe" | "fetch"` option remains supported during migration.
 
 ## Development
 
