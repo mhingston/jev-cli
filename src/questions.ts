@@ -46,7 +46,7 @@ export function buildQuestion(spec: QuestionSpec): unknown {
   if (spec.levels.length < 2) throw new Error("score questions require at least two levels");
   if (spec.levels.length > 10) throw new Error("score questions support at most ten levels");
   if (spec.levels.some((level) => !level.trim())) throw new Error("score levels must not be empty");
-  return score(spec.instructions, spec.levels as Parameters<typeof score>[1]);
+  return score(spec.instructions, spec.levels as unknown as Parameters<typeof score>[1]);
 }
 
 export function buildQuestions(specs: Record<string, QuestionSpec>): Record<string, unknown> {
