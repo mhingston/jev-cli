@@ -168,6 +168,27 @@ describe("CloudflareJevClient", () => {
     });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
+
+  it("routes through a named AI Gateway via cf-aig-gateway-id", async () => {
+    const ok = new Response(JSON.stringify({
+      result: { result: { model: "jev-1.13.0", answers: { urgent: { noul: 0.9 } } } },
+      success: true,
+    }), { status: 200, headers: { "content-type": "application/json" } });
+    const fetchImpl = vi.fn(async () => ok.clone()) as unknown as typeof fetch;
+    const headersOf = (call: number) => new Headers((fetchImpl as any).mock.calls[call][1].headers);
+    const request = { state: "hello", questions: { urgent: { type: "fixture" } } };
+    const base = { endpoint: "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run", apiKey: "test-token", fetchImpl };
+
+    await new CloudflareJevClient(base).systemOne(request);
+    expect(headersOf(0).get("cf-aig-gateway-id")).toBeNull();
+
+    await new CloudflareJevClient({ ...base, gatewayId: "my-gateway" }).systemOne(request);
+    expect(headersOf(1).get("cf-aig-gateway-id")).toBe("my-gateway");
+
+    vi.stubEnv("CLOUDFLARE_GATEWAY_ID", "env-gateway");
+    await new CloudflareJevClient(base).systemOne(request);
+    expect(headersOf(2).get("cf-aig-gateway-id")).toBe("env-gateway");
+  });
 });
 
 describe("FetchJevClient", () => {

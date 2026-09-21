@@ -9,6 +9,7 @@ export interface JevClientOptions {
   provider?: JevProvider;
   apiKey?: string;
   accountId?: string;
+  gatewayId?: string;
   endpoint?: string;
   model?: string;
   timeoutMs?: number;
@@ -203,7 +204,12 @@ export class CloudflareJevClient implements SystemOneLikeClient {
     this.apiKey = apiKey;
     this.model = options.model ?? defaultModelForProvider("cloudflare");
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.headers = { "content-type": "application/json", ...(options.headers ?? {}) };
+    const gatewayId = options.gatewayId ?? process.env.CLOUDFLARE_GATEWAY_ID?.trim();
+    this.headers = {
+      "content-type": "application/json",
+      ...(gatewayId ? { "cf-aig-gateway-id": gatewayId } : {}),
+      ...(options.headers ?? {}),
+    };
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
