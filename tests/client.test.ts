@@ -189,6 +189,27 @@ describe("CloudflareJevClient", () => {
     await new CloudflareJevClient(base).systemOne(request);
     expect(headersOf(2).get("cf-aig-gateway-id")).toBe("env-gateway");
   });
+
+  it("lets a mixed-case headers override replace cf-aig-gateway-id instead of combining with it", async () => {
+    const ok = new Response(JSON.stringify({
+      result: { result: { model: "jev-1.13.0", answers: { urgent: { noul: 0.9 } } } },
+      success: true,
+    }), { status: 200, headers: { "content-type": "application/json" } });
+    const fetchImpl = vi.fn(async () => ok.clone()) as unknown as typeof fetch;
+
+    await new CloudflareJevClient({
+      endpoint: "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run",
+      apiKey: "test-token",
+      fetchImpl,
+      gatewayId: "my-gateway",
+      headers: { "CF-AIG-GATEWAY-ID": "override-gateway" },
+    }).systemOne({ state: "hello", questions: { urgent: { type: "fixture" } } });
+
+    const sent = (fetchImpl as any).mock.calls[0][1].headers as Record<string, string>;
+    const gatewayEntries = Object.entries(sent).filter(([name]) => name.toLowerCase() === "cf-aig-gateway-id");
+    expect(gatewayEntries).toEqual([["cf-aig-gateway-id", "override-gateway"]]);
+    expect(new Headers(sent).get("cf-aig-gateway-id")).toBe("override-gateway");
+  });
 });
 
 describe("FetchJevClient", () => {
