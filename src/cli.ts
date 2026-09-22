@@ -39,6 +39,7 @@ Provider options:
   --model <id>
   --endpoint <url>
   --account-id <id>           Cloudflare account id; env is preferred.
+  --gateway-id <id>           Cloudflare AI Gateway id (cf-aig-gateway-id); env is preferred.
 
 Output options:
   --answer-only               Print only the answer for single-question commands.
@@ -142,6 +143,7 @@ function clientOptions(flags: Flags): JevClientOptions {
     model: flagValue(flags, "--model"),
     endpoint: flagValue(flags, "--endpoint"),
     accountId: flagValue(flags, "--account-id"),
+    gatewayId: flagValue(flags, "--gateway-id"),
   };
 }
 

@@ -9,6 +9,7 @@ export interface JevClientOptions {
   provider?: JevProvider;
   apiKey?: string;
   accountId?: string;
+  gatewayId?: string;
   endpoint?: string;
   model?: string;
   timeoutMs?: number;
@@ -24,6 +25,15 @@ export const VERCEL_ENDPOINT = "https://ai-gateway.vercel.sh/typesafe/v1/systemo
 function endpointRoot(endpoint: string): string {
   const url = new URL(endpoint);
   return `${url.origin}${url.pathname.replace(/\/v1\/systemone\/?$/, "")}`.replace(/\/$/, "");
+}
+
+/** Later layers win. Names are normalized by `Headers`, so `CF-AIG-GATEWAY-ID` replaces `cf-aig-gateway-id` rather than being sent alongside it. */
+function mergeHeaders(...layers: Array<Record<string, string> | undefined>): Record<string, string> {
+  const merged = new Headers();
+  for (const layer of layers) {
+    for (const [name, value] of Object.entries(layer ?? {})) merged.set(name, value);
+  }
+  return Object.fromEntries(merged);
 }
 
 function responsePayload(payload: any): SystemOneResponse {
@@ -157,7 +167,7 @@ export class FetchJevClient implements SystemOneLikeClient {
     this.apiKey = options.apiKey ?? defaultApiKey("custom");
     this.model = options.model;
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.headers = { "content-type": "application/json", ...(options.headers ?? {}) };
+    this.headers = mergeHeaders({ "content-type": "application/json" }, options.headers);
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
@@ -203,7 +213,12 @@ export class CloudflareJevClient implements SystemOneLikeClient {
     this.apiKey = apiKey;
     this.model = options.model ?? defaultModelForProvider("cloudflare");
     this.timeoutMs = options.timeoutMs ?? 30_000;
-    this.headers = { "content-type": "application/json", ...(options.headers ?? {}) };
+    const gatewayId = options.gatewayId ?? process.env.CLOUDFLARE_GATEWAY_ID?.trim();
+    this.headers = mergeHeaders(
+      { "content-type": "application/json" },
+      gatewayId ? { "cf-aig-gateway-id": gatewayId } : undefined,
+      options.headers,
+    );
     this.fetchImpl = options.fetchImpl ?? fetch;
   }
 
