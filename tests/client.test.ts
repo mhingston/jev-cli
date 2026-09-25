@@ -76,7 +76,7 @@ describe.each([
       questions: { urgent: { type: "fixture" } },
     });
 
-    expect(response.answers).toEqual({ urgent: { noul: 0.8 } });
+    expect(response.answers).toEqual({ urgent: { type: "noul", noul: 0.8 } });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 });
@@ -240,7 +240,7 @@ describe("FetchJevClient", () => {
       questions: { urgent: { type: "fixture" } },
     });
 
-    expect(response.answers).toEqual({ urgent: { noul: 0.8 } });
+    expect(response.answers).toEqual({ urgent: { type: "noul", noul: 0.8 } });
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 });
