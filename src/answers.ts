@@ -14,7 +14,7 @@ export interface ScoreAnswer {
   readonly type: "score";
   readonly score: number;
   readonly confidence: number;
-  readonly legend: Record<string, unknown>;
+  readonly legend: Record<string, string>;
   readonly probabilities: Record<string, number>;
 }
 
@@ -82,9 +82,10 @@ export function parseScoreAnswer(value: unknown): ScoreAnswer | undefined {
   if (!record || !answerTypeMatches(record, "score")) return undefined;
   if (typeof record.score !== "number" || !Number.isFinite(record.score) || !validProbability(record.confidence)) return undefined;
 
-  const legend = asRecord(record.legend);
+  const rawLegend = asRecord(record.legend);
   const probabilities = probabilityMap(record.probabilities);
-  if (!legend || !probabilities) return undefined;
+  if (!rawLegend || Object.values(rawLegend).some((level) => typeof level !== "string") || !probabilities) return undefined;
+  const legend = rawLegend as Record<string, string>;
 
   const legendKeys = Object.keys(legend);
   if (legendKeys.length < 2) return undefined;
@@ -106,4 +107,18 @@ export function parseScoreAnswer(value: unknown): ScoreAnswer | undefined {
     legend: { ...legend },
     probabilities,
   };
+}
+
+
+export type JevAnswer = NoulAnswer | ChoiceAnswer | ScoreAnswer;
+
+/** Parse any supported Jev answer shape into the canonical discriminated union. */
+export function parseJevAnswer(value: unknown): JevAnswer | undefined {
+  const record = asRecord(value);
+  if (!record) return undefined;
+
+  if (record.type === "noul" || (record.type == null && "noul" in record)) return parseNoulAnswer(record);
+  if (record.type === "choice" || (record.type == null && "choice" in record)) return parseChoiceAnswer(record);
+  if (record.type === "score" || (record.type == null && "score" in record)) return parseScoreAnswer(record);
+  return undefined;
 }
