@@ -125,8 +125,13 @@ const response = await client.systemOne({
   },
 });
 
-console.log(response.answers);
+const urgent = response.answers.urgent;
+if (urgent?.type === "noul") {
+  console.log(urgent.noul);
+}
 ```
+
+Responses are normalized at the client boundary into the exported `JevAnswer` union (`NoulAnswer | ChoiceAnswer | ScoreAnswer`). Malformed provider answers fail the request instead of leaking `unknown` into callers. The package also exports `parseJevAnswer()`, `parseNoulAnswer()`, `parseChoiceAnswer()`, and `parseScoreAnswer()` for validating raw values and test fixtures.
 
 For dynamically constructed question definitions, `buildQuestion()` and `buildQuestions()` accept JSON-friendly specs. The package also exports `SystemOneLikeClient` so higher-level libraries can inject deterministic fixture clients in tests.
 
