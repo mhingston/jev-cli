@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseChoiceAnswer, parseNoulAnswer, parseScoreAnswer } from "../src/answers.js";
+import { parseChoiceAnswer, parseJevAnswer, parseNoulAnswer, parseScoreAnswer } from "../src/answers.js";
 
 describe("parseNoulAnswer", () => {
   it("accepts canonical answers and compatible answers without a type discriminator", () => {
@@ -99,5 +99,26 @@ describe("parseScoreAnswer", () => {
       legend: { 0: "minor", 1: "blocking" },
       probabilities: { 0: 0.2, 1: 0.8 },
     })).toBeUndefined();
+  });
+});
+
+
+describe("parseJevAnswer", () => {
+  it("infers the answer kind when a compatible provider omits type", () => {
+    expect(parseJevAnswer({ noul: 0.7 })).toEqual({ type: "noul", noul: 0.7 });
+    expect(parseJevAnswer({
+      choice: "a",
+      confidence: 1,
+      probabilities: { a: 1, b: 0 },
+    })).toEqual({
+      type: "choice",
+      choice: "a",
+      confidence: 1,
+      probabilities: { a: 1, b: 0 },
+    });
+  });
+
+  it("rejects unsupported answer shapes", () => {
+    expect(parseJevAnswer({ text: "free form" })).toBeUndefined();
   });
 });
