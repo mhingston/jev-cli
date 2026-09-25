@@ -265,3 +265,47 @@ describe("response validation", () => {
     })).rejects.toThrow('invalid answer for "urgent"');
   });
 });
+
+
+describe("response shape hardening", () => {
+  it("rejects array-valued answers", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      model: "jev-test",
+      answers: [{ type: "noul", noul: 0.8 }],
+    }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne({
+      state: "hello",
+      questions: { urgent: { type: "fixture" } },
+    })).rejects.toThrow("did not contain an answer object");
+  });
+
+  it("preserves __proto__ as an own answer id without changing the result prototype", async () => {
+    const payload = JSON.parse('{"model":"jev-test","answers":{"__proto__":{"type":"noul","noul":0.8}}}');
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    const response = await client.systemOne({
+      state: "hello",
+      questions: { "__proto__": { type: "fixture" } },
+    });
+
+    expect(Object.getPrototypeOf(response.answers)).toBe(Object.prototype);
+    expect(Object.hasOwn(response.answers, "__proto__")).toBe(true);
+    expect(response.answers["__proto__"]).toEqual({ type: "noul", noul: 0.8 });
+  });
+});
