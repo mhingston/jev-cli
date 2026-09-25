@@ -1,4 +1,5 @@
 import { TypeSafeClient } from "@typesafe-ai/sdk";
+import { parseJevAnswer } from "./answers.js";
 import type { SystemOneLikeClient, SystemOneRequest, SystemOneResponse } from "./types.js";
 
 export const JEV_PROVIDERS = ["typesafe", "openrouter", "vercel", "cloudflare", "custom"] as const;
@@ -50,9 +51,15 @@ function responsePayload(payload: any): SystemOneResponse {
   if (!value || typeof value !== "object" || !value.answers || typeof value.answers !== "object") {
     throw new Error("Jev API response did not contain answers");
   }
+  const answers: SystemOneResponse["answers"] = {};
+  for (const [id, rawAnswer] of Object.entries(value.answers)) {
+    const answer = parseJevAnswer(rawAnswer);
+    if (!answer) throw new Error(`Jev API response contained an invalid answer for "${id}"`);
+    answers[id] = answer;
+  }
   return {
     model: typeof value.model === "string" ? value.model : "jev",
-    answers: value.answers,
+    answers,
     usage: value.usage,
   };
 }
@@ -150,7 +157,8 @@ class TypeSafeCompatibleJevClient implements SystemOneLikeClient {
   }
 
   async systemOne(request: SystemOneRequest): Promise<SystemOneResponse> {
-    return this.client.systemOne({ ...request, model: this.model } as any) as unknown as Promise<SystemOneResponse>;
+    const response = await this.client.systemOne({ ...request, model: this.model } as any);
+    return responsePayload(response);
   }
 }
 
