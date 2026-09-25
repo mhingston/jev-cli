@@ -40,7 +40,7 @@ function answerTypeMatches(
   record: Record<string, unknown>,
   expected: NoulAnswer["type"] | ChoiceAnswer["type"] | ScoreAnswer["type"],
 ): boolean {
-  return record.type == null || record.type === expected;
+  return !Object.hasOwn(record, "type") || record.type === expected;
 }
 
 /**
@@ -64,7 +64,7 @@ export function parseChoiceAnswer(value: unknown): ChoiceAnswer | undefined {
   if (!record || !answerTypeMatches(record, "choice")) return undefined;
   if (typeof record.choice !== "string" || !record.choice.trim() || !validProbability(record.confidence)) return undefined;
   const probabilities = probabilityMap(record.probabilities);
-  if (!probabilities || probabilities[record.choice] == null) return undefined;
+  if (!probabilities || !Object.hasOwn(probabilities, record.choice)) return undefined;
   return {
     type: "choice",
     choice: record.choice,
@@ -117,8 +117,9 @@ export function parseJevAnswer(value: unknown): JevAnswer | undefined {
   const record = asRecord(value);
   if (!record) return undefined;
 
-  if (record.type === "noul" || (record.type == null && "noul" in record)) return parseNoulAnswer(record);
-  if (record.type === "choice" || (record.type == null && "choice" in record)) return parseChoiceAnswer(record);
-  if (record.type === "score" || (record.type == null && "score" in record)) return parseScoreAnswer(record);
+  const hasType = Object.hasOwn(record, "type");
+  if (record.type === "noul" || (!hasType && Object.hasOwn(record, "noul"))) return parseNoulAnswer(record);
+  if (record.type === "choice" || (!hasType && Object.hasOwn(record, "choice"))) return parseChoiceAnswer(record);
+  if (record.type === "score" || (!hasType && Object.hasOwn(record, "score"))) return parseScoreAnswer(record);
   return undefined;
 }
