@@ -1,3 +1,5 @@
+import type { JevAnswer } from "./answers.js";
+
 export interface SystemOneRequest {
   model?: string;
   state: unknown;
@@ -6,7 +8,7 @@ export interface SystemOneRequest {
 
 export interface SystemOneResponse {
   model: string;
-  answers: Record<string, unknown>;
+  answers: Record<string, JevAnswer>;
   usage?: {
     input_tokens?: number;
     output_tokens?: number;
