@@ -48,14 +48,19 @@ function responsePayload(payload: any): SystemOneResponse {
         : body?.output?.answers
           ? body.output
           : body;
-  if (!value || typeof value !== "object" || !value.answers || typeof value.answers !== "object") {
-    throw new Error("Jev API response did not contain answers");
+  if (!value || typeof value !== "object" || !value.answers || typeof value.answers !== "object" || Array.isArray(value.answers)) {
+    throw new Error("Jev API response did not contain an answer object");
   }
   const answers: SystemOneResponse["answers"] = {};
   for (const [id, rawAnswer] of Object.entries(value.answers)) {
     const answer = parseJevAnswer(rawAnswer);
     if (!answer) throw new Error(`Jev API response contained an invalid answer for "${id}"`);
-    answers[id] = answer;
+    Object.defineProperty(answers, id, {
+      value: answer,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return {
     model: typeof value.model === "string" ? value.model : "jev",

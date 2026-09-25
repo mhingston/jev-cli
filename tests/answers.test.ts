@@ -9,6 +9,7 @@ describe("parseNoulAnswer", () => {
 
   it("rejects malformed probabilities or the wrong answer type", () => {
     expect(parseNoulAnswer({ type: "choice", noul: 0.8 })).toBeUndefined();
+    expect(parseNoulAnswer({ type: null, noul: 0.8 })).toBeUndefined();
     expect(parseNoulAnswer({ noul: 1.1 })).toBeUndefined();
     expect(parseNoulAnswer({ probability: 0.8 })).toBeUndefined();
   });
@@ -40,6 +41,12 @@ describe("parseChoiceAnswer", () => {
   it("rejects answers whose selected option is absent from the distribution", () => {
     expect(parseChoiceAnswer({
       choice: "billing",
+      confidence: 0.91,
+      probabilities: { technical: 1 },
+    })).toBeUndefined();
+
+    expect(parseChoiceAnswer({
+      choice: "toString",
       confidence: 0.91,
       probabilities: { technical: 1 },
     })).toBeUndefined();
@@ -118,7 +125,8 @@ describe("parseJevAnswer", () => {
     });
   });
 
-  it("rejects unsupported answer shapes", () => {
+  it("rejects unsupported or explicitly invalid discriminators", () => {
     expect(parseJevAnswer({ text: "free form" })).toBeUndefined();
+    expect(parseJevAnswer({ type: null, noul: 0.7 })).toBeUndefined();
   });
 });
