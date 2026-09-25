@@ -59,7 +59,7 @@ describe.each([
       });
       return new Response(JSON.stringify({
         model: "jev-test",
-        answers: { urgent: { noul: 0.8 } },
+        answers: { urgent: { type: "noul", noul: 0.8 } },
         usage: { input_tokens: 10, output_tokens: 2 },
       }), { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
@@ -99,7 +99,7 @@ describe("openrouter provider", () => {
         id: "gen-dec-test",
         model: "typesafe/jev-1.13-20260917",
         provider: "TypeSafe",
-        answers: { urgent: { noul: 0.8 } },
+        answers: { urgent: { type: "noul", noul: 0.8 } },
         usage: { input_tokens: 10, output_tokens: 2 },
       }), { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
@@ -116,7 +116,7 @@ describe("openrouter provider", () => {
 
     expect(response).toEqual({
       model: "typesafe/jev-1.13-20260917",
-      answers: { urgent: { noul: 0.8 } },
+      answers: { urgent: { type: "noul", noul: 0.8 } },
       usage: { input_tokens: 10, output_tokens: 2 },
     });
     expect(fetchImpl).toHaveBeenCalledOnce();
@@ -171,7 +171,7 @@ describe("CloudflareJevClient", () => {
 
   it("routes through a named AI Gateway via cf-aig-gateway-id", async () => {
     const ok = new Response(JSON.stringify({
-      result: { result: { model: "jev-1.13.0", answers: { urgent: { noul: 0.9 } } } },
+      result: { result: { model: "jev-1.13.0", answers: { urgent: { type: "noul", noul: 0.9 } } } },
       success: true,
     }), { status: 200, headers: { "content-type": "application/json" } });
     const fetchImpl = vi.fn(async () => ok.clone()) as unknown as typeof fetch;
@@ -192,7 +192,7 @@ describe("CloudflareJevClient", () => {
 
   it("lets a mixed-case headers override replace cf-aig-gateway-id instead of combining with it", async () => {
     const ok = new Response(JSON.stringify({
-      result: { result: { model: "jev-1.13.0", answers: { urgent: { noul: 0.9 } } } },
+      result: { result: { model: "jev-1.13.0", answers: { urgent: { type: "noul", noul: 0.9 } } } },
       success: true,
     }), { status: 200, headers: { "content-type": "application/json" } });
     const fetchImpl = vi.fn(async () => ok.clone()) as unknown as typeof fetch;
@@ -223,7 +223,7 @@ describe("FetchJevClient", () => {
       });
       return new Response(JSON.stringify({
         model: "jev-test",
-        answers: { urgent: { noul: 0.8 } },
+        answers: { urgent: { type: "noul", noul: 0.8 } },
         usage: { input_tokens: 10, output_tokens: 2 },
       }), { status: 200, headers: { "content-type": "application/json" } });
     }) as unknown as typeof fetch;
@@ -242,5 +242,26 @@ describe("FetchJevClient", () => {
 
     expect(response.answers).toEqual({ urgent: { noul: 0.8 } });
     expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+});
+
+
+describe("response validation", () => {
+  it("rejects malformed provider answers at the client boundary", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      model: "jev-test",
+      answers: { urgent: { noul: 1.2 } },
+    }), { status: 200, headers: { "content-type": "application/json" } })) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne({
+      state: "hello",
+      questions: { urgent: { type: "fixture" } },
+    })).rejects.toThrow('invalid answer for "urgent"');
   });
 });
