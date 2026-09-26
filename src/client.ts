@@ -136,7 +136,10 @@ async function postJson(
     let body: any;
     try {
       body = await response.json();
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`${serviceName} timed out after ${timeoutMs}ms`);
+      }
       if (response.ok) {
         throw new Error(`${serviceName} returned a non-JSON response`);
       }
