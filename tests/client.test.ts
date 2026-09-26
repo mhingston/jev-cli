@@ -347,6 +347,26 @@ describe("fetch transport errors", () => {
     );
   });
 
+  it("reports timeouts without retrying the POST", async () => {
+    const fetchImpl = vi.fn(async () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    }) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      timeoutMs: 123,
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API timed out after 123ms",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it("classifies Cloudflare service failures using the shared transport boundary", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
       errors: [{ message: "upstream unavailable" }],
