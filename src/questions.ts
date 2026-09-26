@@ -26,6 +26,15 @@ function fail(path: string, message: string): never {
   throw new Error(`${path} ${message}`);
 }
 
+function setOwn<T>(target: Record<string, T>, key: string, value: T): void {
+  Object.defineProperty(target, key, {
+    value,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+}
+
 function requireObject(value: unknown, path: string): UnknownRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     fail(path, "must be an object");
@@ -90,7 +99,7 @@ export function validateQuestionSpec(value: unknown, path = "question"): Questio
       if (description !== null && typeof description !== "string") {
         fail(`${path}.choices.${id}`, "must be a string or null");
       }
-      choices[id] = description;
+      setOwn(choices, id, description);
     }
     return { type, instructions, choices };
   }
@@ -99,7 +108,7 @@ export function validateQuestionSpec(value: unknown, path = "question"): Questio
   if (spec.levels.length < 2) fail(`${path}.levels`, "must contain at least two levels");
   if (spec.levels.length > 10) fail(`${path}.levels`, "supports at most ten levels");
 
-  const levels = spec.levels.map((level, index) => {
+  const levels = Array.from(spec.levels, (level, index) => {
     if (typeof level !== "string") fail(`${path}.levels[${index}]`, "must be a string");
     if (!level.trim()) fail(`${path}.levels[${index}]`, "must not be empty");
     return level;
@@ -115,7 +124,7 @@ export function validateQuestionSpecs(value: unknown, path = "questions"): Recor
   const result: Record<string, QuestionSpec> = {};
   for (const [id, spec] of entries) {
     if (!id.trim()) fail(path, "must not contain an empty question id");
-    result[id] = validateQuestionSpec(spec, `${path}.${id}`);
+    setOwn(result, id, validateQuestionSpec(spec, `${path}.${id}`));
   }
   return result;
 }
@@ -144,7 +153,7 @@ export function buildQuestions(specs: unknown): Record<string, unknown> {
   const validated = validateQuestionSpecs(specs);
   const result: Record<string, unknown> = {};
   for (const [id, spec] of Object.entries(validated)) {
-    result[id] = buildValidatedQuestion(spec);
+    setOwn(result, id, buildValidatedQuestion(spec));
   }
   return result;
 }
