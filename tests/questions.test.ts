@@ -99,4 +99,36 @@ describe("runtime question validation", () => {
       },
     })).toThrow("questions.severity.levels[1] must be a string");
   });
+
+  it("rejects sparse score arrays instead of skipping holes", () => {
+    expect(() => validateQuestionSpec({
+      type: "score",
+      instructions: "How severe is this?",
+      levels: new Array(2),
+    })).toThrow("question.levels[0] must be a string");
+  });
+
+  it("preserves a __proto__ choice id as an own property", () => {
+    const choices = JSON.parse('{"__proto__":"Fallback","billing":"Billing"}') as unknown;
+    const question = validateQuestionSpec({
+      type: "choice",
+      instructions: "Which queue fits?",
+      choices,
+    });
+
+    expect(question.type).toBe("choice");
+    if (question.type !== "choice") throw new Error("expected choice question");
+    expect(Object.hasOwn(question.choices, "__proto__")).toBe(true);
+    expect(question.choices["__proto__"]).toBe("Fallback");
+  });
+
+  it("preserves a __proto__ question id through validation and building", () => {
+    const specs = JSON.parse('{"__proto__":{"type":"noul","instructions":"Is this valid?"},"normal":{"type":"noul","instructions":"Is this normal?"}}') as unknown;
+
+    const validated = validateQuestionSpecs(specs);
+    const built = buildQuestions(specs);
+
+    expect(Object.hasOwn(validated, "__proto__")).toBe(true);
+    expect(Object.hasOwn(built, "__proto__")).toBe(true);
+  });
 });
