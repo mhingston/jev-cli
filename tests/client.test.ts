@@ -310,7 +310,7 @@ describe("fetch transport errors", () => {
     });
 
     await expect(client.systemOne(request)).rejects.toThrow(
-      "Jev API input limit was exceeded (HTTP 400): input exceeded the model limit. Reduce semantic context or split the request.",
+      "Jev API input limit was exceeded (HTTP 400): input exceeded the model limit. Reduce the submitted state or questions, or split the request.",
     );
   });
 
