@@ -93,7 +93,7 @@ function providerHttpError(serviceName: string, status: number, body: any): Erro
 
   if (code === "max_tokens_exceeded") {
     return new Error(
-      `${serviceName} input limit was exceeded (HTTP ${status})${suffix}. Reduce semantic context or split the request.`,
+      `${serviceName} input limit was exceeded (HTTP ${status})${suffix}. Reduce the submitted state or questions, or split the request.`,
     );
   }
   if (status === 401 || status === 403) {
