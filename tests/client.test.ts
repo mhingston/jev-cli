@@ -331,6 +331,29 @@ describe("fetch transport errors", () => {
     );
   });
 
+  it("reports an abort during response parsing as a timeout", async () => {
+    const parseError = new Error("aborted");
+    parseError.name = "AbortError";
+    const response = {
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => { throw parseError; }),
+    } as unknown as Response;
+    const fetchImpl = vi.fn(async () => response) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      timeoutMs: 123,
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API timed out after 123ms",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it("adds context to network failures", async () => {
     const fetchImpl = vi.fn(async () => {
       throw new TypeError("socket closed");
