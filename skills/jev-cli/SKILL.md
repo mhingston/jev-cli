@@ -32,7 +32,7 @@ Avoid sending an entire conversation, document, or application state when one fi
 
 ## Write questions
 
-Make each question atomic and literal.
+Make each question atomic and literal. Put the full meaning in the instructions; treat the question ID as an output key, not part of the prompt. A question should still be unambiguous if its ID is hidden.
 
 Good:
 
@@ -72,7 +72,7 @@ jev choice \
   --choices '{"billing":"Charges, invoices, refunds, or subscriptions","technical":"Bugs or outages","other":"Anything else"}'
 ```
 
-Add `other` or an equivalent fallback when the taxonomy may be incomplete. Make nearby options contrastive.
+Add `other`, `unknown`, `abstain`, or an equivalent fallback whenever the taxonomy may be incomplete. A forced Choice can be highly confident even when none of the available options is correct, so a downstream confidence threshold does not repair a missing escape hatch. Make nearby options contrastive.
 
 ### Score
 
@@ -85,7 +85,7 @@ jev score \
   --levels '["Cosmetic or negligible impact","Degraded but a workaround exists","Blocking with no workaround"]'
 ```
 
-Describe concrete situations rather than labels such as "low", "medium", and "high" when those labels alone are ambiguous.
+Describe concrete situations rather than labels such as "low", "medium", and "high" when those labels alone are ambiguous. Avoid bare numeric ladders such as `1` through `5`; the levels should carry the semantic meaning of the scale.
 
 ## Batch shared state
 
