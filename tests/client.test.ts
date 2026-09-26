@@ -246,6 +246,172 @@ describe("FetchJevClient", () => {
 });
 
 
+describe("fetch transport errors", () => {
+  const request = {
+    state: "hello",
+    questions: { urgent: { type: "fixture" } },
+  };
+
+  it("classifies OpenRouter authentication failures and preserves provider detail", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      error: { message: "invalid API key" },
+    }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    const client = createJevClient({
+      provider: "openrouter",
+      apiKey: "bad-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "OpenRouter Jev API authentication failed (HTTP 401): invalid API key",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("classifies rate limits without retrying the POST", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      error: { message: "too many requests" },
+    }), {
+      status: 429,
+      headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API rate limited the request (HTTP 429): too many requests",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("turns max_tokens_exceeded into an actionable context error", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      detail: {
+        error_type: "max_tokens_exceeded",
+        message: "input exceeded the model limit",
+      },
+    }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API input limit was exceeded (HTTP 400): input exceeded the model limit. Reduce the submitted state or questions, or split the request.",
+    );
+  });
+
+  it("reports successful non-JSON responses explicitly", async () => {
+    const fetchImpl = vi.fn(async () => new Response("not json", {
+      status: 200,
+      headers: { "content-type": "text/plain" },
+    })) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API returned a non-JSON response",
+    );
+  });
+
+  it("reports an abort during response parsing as a timeout", async () => {
+    const parseError = new Error("aborted");
+    parseError.name = "AbortError";
+    const response = {
+      ok: true,
+      status: 200,
+      json: vi.fn(async () => { throw parseError; }),
+    } as unknown as Response;
+    const fetchImpl = vi.fn(async () => response) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      timeoutMs: 123,
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API timed out after 123ms",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("adds context to network failures", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError("socket closed");
+    }) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API network request failed: socket closed",
+    );
+  });
+
+  it("reports timeouts without retrying the POST", async () => {
+    const fetchImpl = vi.fn(async () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    }) as unknown as typeof fetch;
+
+    const client = new FetchJevClient({
+      endpoint: "https://example.test/v1/systemone",
+      apiKey: "test-key",
+      timeoutMs: 123,
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Jev API timed out after 123ms",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("classifies Cloudflare service failures using the shared transport boundary", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({
+      errors: [{ message: "upstream unavailable" }],
+    }), {
+      status: 503,
+      headers: { "content-type": "application/json" },
+    })) as unknown as typeof fetch;
+
+    const client = new CloudflareJevClient({
+      endpoint: "https://api.cloudflare.com/client/v4/accounts/test-account/ai/run",
+      apiKey: "test-token",
+      fetchImpl,
+    });
+
+    await expect(client.systemOne(request)).rejects.toThrow(
+      "Cloudflare AI service error (HTTP 503): upstream unavailable",
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+});
+
+
 describe("response validation", () => {
   it("rejects malformed provider answers at the client boundary", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({

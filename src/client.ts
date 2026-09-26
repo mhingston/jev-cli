@@ -70,7 +70,86 @@ function responsePayload(payload: any): SystemOneResponse {
 }
 
 function errorMessage(body: any): string {
-  return body?.error?.message ?? body?.errors?.[0]?.message ?? body?.message ?? "request failed";
+  return body?.error?.message
+    ?? body?.detail?.message
+    ?? body?.errors?.[0]?.message
+    ?? body?.message
+    ?? "request failed";
+}
+
+function errorCode(body: any): string | undefined {
+  const value = body?.detail?.error_type
+    ?? body?.error?.code
+    ?? body?.error?.type
+    ?? body?.errors?.[0]?.code
+    ?? body?.errors?.[0]?.type;
+  return typeof value === "string" ? value : undefined;
+}
+
+function providerHttpError(serviceName: string, status: number, body: any): Error {
+  const message = errorMessage(body);
+  const code = errorCode(body);
+  const suffix = message === "request failed" ? "" : `: ${message}`;
+
+  if (code === "max_tokens_exceeded") {
+    return new Error(
+      `${serviceName} input limit was exceeded (HTTP ${status})${suffix}. Reduce the submitted state or questions, or split the request.`,
+    );
+  }
+  if (status === 401 || status === 403) {
+    return new Error(`${serviceName} authentication failed (HTTP ${status})${suffix}`);
+  }
+  if (status === 429) {
+    return new Error(`${serviceName} rate limited the request (HTTP 429)${suffix}`);
+  }
+  if (status === 400 || status === 422) {
+    return new Error(`${serviceName} rejected the request (HTTP ${status})${suffix}`);
+  }
+  if (status >= 500) {
+    return new Error(`${serviceName} service error (HTTP ${status})${suffix}`);
+  }
+  return new Error(`${serviceName} request failed (HTTP ${status})${suffix}`);
+}
+
+async function postJson(
+  serviceName: string,
+  endpoint: string,
+  init: RequestInit,
+  timeoutMs: number,
+  fetchImpl: typeof fetch,
+): Promise<any> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    let response: Response;
+    try {
+      response = await fetchImpl(endpoint, { ...init, signal: controller.signal });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`${serviceName} timed out after ${timeoutMs}ms`);
+      }
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(`${serviceName} network request failed: ${detail}`);
+    }
+
+    let body: any;
+    try {
+      body = await response.json();
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`${serviceName} timed out after ${timeoutMs}ms`);
+      }
+      if (response.ok) {
+        throw new Error(`${serviceName} returned a non-JSON response`);
+      }
+    }
+
+    if (!response.ok) throw providerHttpError(serviceName, response.status, body);
+    return body;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function resolveJevProvider(options: JevClientOptions = {}): JevProvider {
@@ -174,40 +253,34 @@ export class FetchJevClient implements SystemOneLikeClient {
   private readonly timeoutMs: number;
   private readonly headers: Record<string, string>;
   private readonly fetchImpl: typeof fetch;
+  private readonly serviceName: string;
 
-  constructor(options: JevClientOptions = {}) {
+  constructor(options: JevClientOptions = {}, serviceName = "Jev API") {
     this.endpoint = options.endpoint ?? DEFAULT_ENDPOINT;
     this.apiKey = options.apiKey ?? defaultApiKey("custom");
     this.model = options.model;
     this.timeoutMs = options.timeoutMs ?? 30_000;
     this.headers = mergeHeaders({ "content-type": "application/json" }, options.headers);
     this.fetchImpl = options.fetchImpl ?? fetch;
+    this.serviceName = serviceName;
   }
 
   async systemOne(request: SystemOneRequest): Promise<SystemOneResponse> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      const response = await this.fetchImpl(this.endpoint, {
+    const body = await postJson(
+      this.serviceName,
+      this.endpoint,
+      {
         method: "POST",
         headers: {
           ...this.headers,
           ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}),
         },
         body: JSON.stringify({ ...request, ...(this.model ? { model: this.model } : {}) }),
-        signal: controller.signal,
-      });
-      const body = await response.json().catch(() => undefined);
-      if (!response.ok) throw new Error(`Jev API ${response.status}: ${errorMessage(body)}`);
-      return responsePayload(body);
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new Error(`Jev API timed out after ${this.timeoutMs}ms`);
-      }
-      throw error;
-    } finally {
-      clearTimeout(timer);
-    }
+      },
+      this.timeoutMs,
+      this.fetchImpl,
+    );
+    return responsePayload(body);
   }
 }
 
@@ -236,29 +309,21 @@ export class CloudflareJevClient implements SystemOneLikeClient {
   }
 
   async systemOne(request: SystemOneRequest): Promise<SystemOneResponse> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-    try {
-      const response = await this.fetchImpl(this.endpoint, {
+    const body = await postJson(
+      "Cloudflare AI",
+      this.endpoint,
+      {
         method: "POST",
         headers: { ...this.headers, authorization: `Bearer ${this.apiKey}` },
         body: JSON.stringify({
           model: this.model,
           input: { state: request.state, questions: request.questions },
         }),
-        signal: controller.signal,
-      });
-      const body = await response.json().catch(() => undefined);
-      if (!response.ok) throw new Error(`Jev API ${response.status}: ${errorMessage(body)}`);
-      return responsePayload(body);
-    } catch (error) {
-      if (error instanceof Error && error.name === "AbortError") {
-        throw new Error(`Jev API timed out after ${this.timeoutMs}ms`);
-      }
-      throw error;
-    } finally {
-      clearTimeout(timer);
-    }
+      },
+      this.timeoutMs,
+      this.fetchImpl,
+    );
+    return responsePayload(body);
   }
 }
 
@@ -271,7 +336,7 @@ export function createJevClient(options: JevClientOptions = {}): SystemOneLikeCl
       apiKey: options.apiKey ?? defaultApiKey("openrouter"),
       endpoint: options.endpoint ?? defaultEndpointForProvider("openrouter", options.accountId),
       model: options.model ?? defaultModelForProvider("openrouter"),
-    });
+    }, "OpenRouter Jev API");
   }
   if (provider === "custom") {
     return new FetchJevClient({
