@@ -133,7 +133,7 @@ if (urgent?.type === "noul") {
 
 Responses are normalized at the client boundary into the exported `JevAnswer` union (`NoulAnswer | ChoiceAnswer | ScoreAnswer`). Malformed provider answers fail the request instead of leaking `unknown` into callers. The package also exports `parseJevAnswer()`, `parseNoulAnswer()`, `parseChoiceAnswer()`, and `parseScoreAnswer()` for validating raw values and test fixtures.
 
-For dynamically constructed question definitions, `buildQuestion()` and `buildQuestions()` accept JSON-friendly specs. The package also exports `SystemOneLikeClient` so higher-level libraries can inject deterministic fixture clients in tests.
+For dynamically constructed question definitions, `buildQuestion()` and `buildQuestions()` accept JSON-friendly specs and validate them at runtime before calling the SDK. `validateQuestionSpec()` and `validateQuestionSpecs()` expose the same deterministic validation when you need to check untrusted or file-loaded JSON without building a request; validation errors include the failing question path. The package also exports `SystemOneLikeClient` so higher-level libraries can inject deterministic fixture clients in tests.
 
 
 ## Agent skill

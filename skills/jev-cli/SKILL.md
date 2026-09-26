@@ -20,7 +20,9 @@ Do not use Jev for open-ended generation, planning, arithmetic, counting, date c
 
 Send only the evidence needed by the question.
 
-Prefer structured JSON so the question can refer to explicit fields. Remove unrelated context and compute deterministic values before invoking Jev.
+Prefer structured JSON so the question can refer to explicit fields. Name the evidence clearly and point to relevant fields explicitly with backticked paths such as `ticket.text`. Remove unrelated context and compute deterministic values before invoking Jev.
+
+Treat state as evidence, not policy. Do not rely on text inside the state to define how the decision should be made; keep the decision boundary in the question/criteria and test self-describing or adversarial state text before automating consequential actions.
 
 Good:
 
@@ -32,7 +34,7 @@ Avoid sending an entire conversation, document, or application state when one fi
 
 ## Write questions
 
-Make each question atomic and literal.
+Make each question atomic and literal. Put the full meaning in the instructions; treat the question ID as an output key, not part of the prompt. A question should still be unambiguous if its ID is hidden.
 
 Good:
 
@@ -61,6 +63,8 @@ jev noul \
 
 A value near 0.5 means uncertainty. It does not mean "medium". Use Score for degrees.
 
+When the yes/no boundary is subtle, supply both `--true-label` and `--false-label` as concrete descriptions of the neighboring cases. Keep them aligned with the question direction: the true label must describe "yes", not an inverted or negated alternative.
+
 ### Choice
 
 Use when the answer belongs to a bounded taxonomy:
@@ -72,7 +76,7 @@ jev choice \
   --choices '{"billing":"Charges, invoices, refunds, or subscriptions","technical":"Bugs or outages","other":"Anything else"}'
 ```
 
-Add `other` or an equivalent fallback when the taxonomy may be incomplete. Make nearby options contrastive.
+Add `other`, `unknown`, `abstain`, or an equivalent fallback whenever the taxonomy may be incomplete. A forced Choice can be highly confident even when none of the available options is correct, so a downstream confidence threshold does not repair a missing escape hatch. Make nearby options contrastive.
 
 ### Score
 
@@ -85,7 +89,7 @@ jev score \
   --levels '["Cosmetic or negligible impact","Degraded but a workaround exists","Blocking with no workaround"]'
 ```
 
-Describe concrete situations rather than labels such as "low", "medium", and "high" when those labels alone are ambiguous.
+Describe concrete situations rather than labels such as "low", "medium", and "high" when those labels alone are ambiguous. Avoid bare numeric ladders such as `1` through `5`; the levels should carry the semantic meaning of the scale. Make every level meaningful on its own rather than defining it relative to another level, and keep the scale to one semantic dimension.
 
 ## Batch shared state
 
@@ -133,11 +137,13 @@ Use a second Jev request only when code genuinely cannot construct it until afte
 The top answer is not proof of correctness.
 
 - Inspect probabilities when a decision matters.
+- For Noul, the `noul` value is P(yes); there is no separate confidence field. For Choice and Score, confidence describes concentration in the returned distribution.
 - Treat confidence as evidence about the answer distribution, not guaranteed accuracy.
 - Set thresholds in caller code.
 - Use a review, confirmation, or fallback path below the threshold.
 - Raise thresholds as the cost of a wrong action increases.
 - Validate thresholds against labelled examples from the real task.
+- Once thresholds are calibrated, pin the provider/model version where the provider supports it. Treat model or provider changes as evaluation events and rerun the labelled set before trusting the same thresholds.
 
 Never hide policy inside question wording merely to force a desired answer.
 
@@ -151,6 +157,7 @@ When a result is wrong or uncertain, isolate the failing question first.
 - **Accuracy falls with larger inputs** → remove irrelevant state.
 - **Counting, sums, dates, or numeric comparisons fail** → move the deterministic operation to code.
 - **One wording fix breaks another case** → the question may contain multiple judgments; split it.
+- **A surprising answer** → first verify the referenced state contains the evidence, then reread the instruction literally before blaming the model.
 - **Answers are right but the final action is wrong** → change policy, weights, or thresholds in code rather than rewriting the question.
 
 Revise against labelled examples. Do not treat higher confidence alone as evidence of improvement.
@@ -179,12 +186,16 @@ Before relying on a Jev decision:
 - Deterministic computation stays in code.
 - Independent questions sharing state are batched.
 - Choice taxonomies have an appropriate fallback when incomplete.
-- Score levels are concrete and distinguishable.
+- Score levels are concrete, independently meaningful, and measure one dimension.
+- Subtle Noul boundaries define both true and false cases.
 - Thresholds and side effects live outside Jev.
+- Noul probability is not treated as a separate confidence score.
 - Low-confidence decisions have a safe fallback.
-- Changes are evaluated on labelled examples.
+- Changes to questions, models, providers, or thresholds are evaluated on labelled examples.
 
 ## Further reading
 
-This skill is intentionally CLI-focused. For deeper Jev question-design patterns, see TypeSafe AI's Jev documentation and the independent `building-with-jev-skill` reference:
-https://github.com/dbreunig/building-with-jev-skill/tree/main/skills/jev
+This skill is intentionally CLI-focused. For deeper Jev question-design patterns and supporting empirical work, see TypeSafe AI's Jev documentation plus these independent references:
+
+- https://github.com/dbreunig/building-with-jev-skill/tree/main/skills/jev
+- https://github.com/suraj-phanindra/wellposed
