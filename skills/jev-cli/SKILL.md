@@ -76,7 +76,7 @@ jev choice \
   --choices '{"billing":"Charges, invoices, refunds, or subscriptions","technical":"Bugs or outages","other":"Anything else"}'
 ```
 
-Add `other`, `unknown`, `abstain`, or an equivalent fallback whenever the taxonomy may be incomplete. A forced Choice can be highly confident even when none of the available options is correct, so a downstream confidence threshold does not repair a missing escape hatch. Make nearby options contrastive.
+Add `other`, `unknown`, `abstain`, or an equivalent fallback whenever the taxonomy may be incomplete. A forced Choice can be highly confident even when none of the available options is correct, so a downstream confidence threshold does not repair a missing escape hatch. When code must distinguish "best available option" from "one of these genuinely fits", pair the Choice with an independent `fits`/`exists` Noul. Make nearby options contrastive.
 
 ### Score
 
@@ -140,6 +140,7 @@ The top answer is not proof of correctness.
 - For Noul, the `noul` value is P(yes); there is no separate confidence field. For Choice and Score, confidence describes concentration in the returned distribution.
 - Treat confidence as evidence about the answer distribution, not guaranteed accuracy.
 - Set thresholds in caller code.
+- For destructive, money-moving, or otherwise irreversible actions, enforce deterministic safety rules before Jev; a Jev judgment may make the action stricter, never bypass a hard constraint.
 - Use a review, confirmation, or fallback path below the threshold.
 - Raise thresholds as the cost of a wrong action increases.
 - Validate thresholds against labelled examples from the real task.
@@ -197,5 +198,6 @@ Before relying on a Jev decision:
 
 This skill is intentionally CLI-focused. For deeper Jev question-design patterns and supporting empirical work, see TypeSafe AI's Jev documentation plus these independent references:
 
-- https://github.com/dbreunig/building-with-jev-skill/tree/main/skills/jev
-- https://github.com/suraj-phanindra/wellposed
+- https://github.com/dbreunig/building-with-jev-skill/tree/main/skills/jev — deeper question-design and answer-composition guidance.
+- https://github.com/aaddrick/building-with-typesafe-jev/tree/main/skills/building-with-typesafe-jev — broader implementation patterns, prior art, SDK/operational guidance, and production safety.
+- https://github.com/suraj-phanindra/wellposed — deterministic and semantic linting of Jev request construction.
