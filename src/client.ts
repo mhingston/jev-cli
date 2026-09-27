@@ -193,7 +193,7 @@ function defaultApiKey(provider: JevProvider): string | undefined {
     case "openrouter": return process.env.OPENROUTER_API_KEY;
     case "vercel": return process.env.AI_GATEWAY_API_KEY;
     case "cloudflare": return process.env.CLOUDFLARE_API_TOKEN;
-    case "custom": return process.env.JEV_API_KEY ?? process.env.TYPESAFE_API_KEY;
+    case "custom": return process.env.JEV_API_KEY;
   }
 }
 
@@ -343,7 +343,7 @@ export function createJevClient(options: JevClientOptions = {}): SystemOneLikeCl
       ...options,
       endpoint: options.endpoint ?? process.env.JEV_ENDPOINT ?? DEFAULT_ENDPOINT,
       model: options.model ?? process.env.JEV_MODEL,
-    });
+    }, "System One API");
   }
   return new TypeSafeCompatibleJevClient(provider, options);
 }
