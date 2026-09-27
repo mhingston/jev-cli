@@ -42,6 +42,12 @@ describe("provider resolution", () => {
     vi.stubEnv("JEV_MODEL", "jev-test");
     expect(defaultModelForProvider("typesafe")).toBe("jev-test");
   });
+
+  it("does not expose a TypeSafe default model for the custom provider", () => {
+    vi.stubEnv("JEV_MODEL", "   ");
+    vi.stubEnv("TYPESAFE_DEFAULT_MODEL", "typesafe-default");
+    expect(defaultModelForProvider("custom")).toBeUndefined();
+  });
 });
 
 describe.each([
