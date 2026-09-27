@@ -1,6 +1,6 @@
 # Jev CLI
 
-A small, provider-agnostic command-line interface and Node.js client for [TypeSafe AI Jev](https://typesafe.ai/).
+A small, provider-agnostic command-line interface and Node.js client for System One-compatible decision APIs, including [TypeSafe AI Jev](https://typesafe.ai/).
 
 The package owns the reusable Jev boundary: provider selection, System One transport, typed question construction, and the `jev` executable. Domain-specific tools such as [`jev-agent-browser`](https://github.com/mhingston/jev-agent-browser/tree/main) can depend on this package while keeping their own observation, policy, and execution loops.
 
@@ -84,9 +84,35 @@ Use `--questions-file questions.json` for checked-in question definitions. State
 | OpenRouter | `openrouter` | `OPENROUTER_API_KEY` | `typesafe/jev-1.13` |
 | Vercel AI Gateway | `vercel` | `AI_GATEWAY_API_KEY` | `typesafe-ai/jev` |
 | Cloudflare AI | `cloudflare` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, optional `CLOUDFLARE_GATEWAY_ID` | `typesafe/jev` |
-| Custom | `custom` | `JEV_API_KEY` when required | caller-defined / Jev default |
+| System One-compatible API | `custom` | optional `JEV_API_KEY` | none unless explicitly configured |
 
 Select the transport with `--provider` or `JEV_PROVIDER`. Override the model with `--model` or `JEV_MODEL`, and the endpoint with `--endpoint` or `JEV_ENDPOINT`.
+
+
+### System One-compatible APIs
+
+Use `custom` for any service that implements the TypeSafe `POST /v1/systemone` request/response contract. The CLI sends `state` and `questions`, plus `model` only when you explicitly set `--model` or `JEV_MODEL`. Bearer authentication is sent only when `JEV_API_KEY` is configured.
+
+This lets the same CLI work with compatible local or third-party implementations without adding a provider-specific adapter. For example, both [Von](https://github.com/wfzyx/von) and [Decider](https://github.com/Mapika/decider) expose a TypeSafe-compatible `/v1/systemone` endpoint.
+
+Von:
+
+```bash
+jev noul --provider custom \
+  --endpoint http://localhost:8000/v1/systemone \
+  --model von-latest \
+  --state "Please refund this today" \
+  --question "Does the message communicate urgency?"
+```
+
+Decider:
+
+```bash
+jev noul --provider custom \
+  --endpoint http://localhost:8000/v1/systemone \
+  --state "Please refund this today" \
+  --question "Does the message communicate urgency?"
+```
 
 Cloudflare routes through the account's `default` AI Gateway unless you name one with `--gateway-id` or `CLOUDFLARE_GATEWAY_ID` (sent as `cf-aig-gateway-id`). Use this when your TypeSafe key is stored (BYOK) on a specific gateway.
 
