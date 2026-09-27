@@ -133,6 +133,13 @@ async function readQuestions(flags: Flags): Promise<Record<string, QuestionSpec>
   return value as Record<string, QuestionSpec>;
 }
 
+function modelForRequest(provider: JevProvider, explicitModel?: string): string | undefined {
+  if (explicitModel) return explicitModel;
+  const configured = process.env.JEV_MODEL?.trim();
+  if (configured) return configured;
+  return provider === "custom" ? undefined : defaultModelForProvider(provider);
+}
+
 function clientOptions(flags: Flags): JevClientOptions {
   const providerText = flagValue(flags, "--provider");
   if (providerText != null && !JEV_PROVIDERS.includes(providerText as JevProvider)) {
@@ -159,9 +166,13 @@ async function runQuestion(
 ): Promise<void> {
   const options = clientOptions(flags);
   const provider = resolveJevProvider(options);
-  const model = options.model ?? defaultModelForProvider(provider);
+  const model = modelForRequest(provider, options.model);
   const client = createJevClient(options);
-  const response = await client.systemOne({ model, state, questions: buildQuestions(specs) });
+  const response = await client.systemOne({
+    ...(model ? { model } : {}),
+    state,
+    questions: buildQuestions(specs),
+  });
   if (answerOnly && Object.keys(specs).length === 1) {
     const key = Object.keys(specs)[0];
     output(response.answers[key], hasFlag(flags, "--compact"));
@@ -181,8 +192,9 @@ async function main(): Promise<void> {
     const credentialEnvironment = credentialEnvironmentForProvider(provider);
     output({
       provider,
-      model: options.model ?? defaultModelForProvider(provider),
+      model: modelForRequest(provider, options.model) ?? null,
       credentials: Object.fromEntries(credentialEnvironment.map((name) => [name, Boolean(process.env[name])])),
+      credentialMode: provider === "custom" ? "endpoint-defined" : "required",
       endpointOverride: Boolean(options.endpoint ?? process.env.JEV_ENDPOINT),
     }, hasFlag(flags, "--compact"));
     return;
