@@ -160,7 +160,10 @@ export function resolveJevProvider(options: JevClientOptions = {}): JevProvider 
 }
 
 
-export function defaultModelForProvider(provider: JevProvider): string {
+export function defaultModelForProvider(provider: "custom"): string | undefined;
+export function defaultModelForProvider(provider: Exclude<JevProvider, "custom">): string;
+export function defaultModelForProvider(provider: JevProvider): string | undefined;
+export function defaultModelForProvider(provider: JevProvider): string | undefined {
   const override = process.env.JEV_MODEL?.trim();
   if (override) return override;
   switch (provider) {
@@ -173,7 +176,7 @@ export function defaultModelForProvider(provider: JevProvider): string {
     case "cloudflare":
       return "typesafe/jev";
     case "custom":
-      return process.env.TYPESAFE_DEFAULT_MODEL?.trim() || "jev-1.13.0";
+      return undefined;
   }
 }
 
@@ -342,7 +345,7 @@ export function createJevClient(options: JevClientOptions = {}): SystemOneLikeCl
     return new FetchJevClient({
       ...options,
       endpoint: options.endpoint ?? process.env.JEV_ENDPOINT ?? DEFAULT_ENDPOINT,
-      model: options.model ?? process.env.JEV_MODEL,
+      model: options.model ?? (process.env.JEV_MODEL?.trim() || undefined),
     }, "System One API");
   }
   return new TypeSafeCompatibleJevClient(provider, options);
