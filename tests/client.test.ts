@@ -123,6 +123,95 @@ describe("openrouter provider", () => {
   });
 });
 
+
+describe("custom provider", () => {
+  it("uses a generic System One endpoint without leaking TypeSafe credentials or injecting a model", async () => {
+    vi.stubEnv("TYPESAFE_API_KEY", "typesafe-secret-that-must-not-leak");
+    vi.stubEnv("JEV_API_KEY", "");
+    vi.stubEnv("JEV_MODEL", "");
+
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("http://localhost:8000/v1/systemone");
+      expect(new Headers(init?.headers).get("authorization")).toBeNull();
+      expect(JSON.parse(String(init?.body))).toEqual({
+        state: { ticket: "hello" },
+        questions: { route: { type: "fixture" } },
+      });
+      return new Response(JSON.stringify({
+        model: "decider",
+        answers: {
+          route: {
+            type: "choice",
+            choice: "billing",
+            confidence: 0.7,
+            x_p_max: 0.85,
+            certainty: 0.6,
+            probabilities: { billing: 0.85, technical: 0.15 },
+          },
+        },
+        usage: { input_tokens: 10, output_tokens: 0 },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    const client = createJevClient({
+      provider: "custom",
+      endpoint: "http://localhost:8000/v1/systemone",
+      fetchImpl,
+    });
+
+    const response = await client.systemOne({
+      state: { ticket: "hello" },
+      questions: { route: { type: "fixture" } },
+    });
+
+    expect(response).toEqual({
+      model: "decider",
+      answers: {
+        route: {
+          type: "choice",
+          choice: "billing",
+          confidence: 0.7,
+          probabilities: { billing: 0.85, technical: 0.15 },
+        },
+      },
+      usage: { input_tokens: 10, output_tokens: 0 },
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
+  it("forwards endpoint-defined model and Bearer credentials only when explicitly configured", async () => {
+    vi.stubEnv("JEV_API_KEY", "local-secret");
+    vi.stubEnv("JEV_MODEL", "von-latest");
+
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(new Headers(init?.headers).get("authorization")).toBe("Bearer local-secret");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        model: "von-latest",
+        state: "hello",
+        questions: { urgent: { type: "fixture" } },
+      });
+      return new Response(JSON.stringify({
+        model: "von-latest",
+        answers: { urgent: { type: "noul", noul: 0.8 } },
+        usage: { input_tokens: 8, output_tokens: 1 },
+      }), { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+
+    const client = createJevClient({
+      provider: "custom",
+      endpoint: "http://localhost:8000/v1/systemone",
+      fetchImpl,
+    });
+
+    const response = await client.systemOne({
+      state: "hello",
+      questions: { urgent: { type: "fixture" } },
+    });
+
+    expect(response.answers).toEqual({ urgent: { type: "noul", noul: 0.8 } });
+  });
+});
+
 describe("CloudflareJevClient", () => {
   it("sends Cloudflare's input envelope and unwraps its nested response", async () => {
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
