@@ -175,6 +175,8 @@ jev doctor --provider vercel
 
 For OpenRouter, set `OPENROUTER_API_KEY`; the CLI uses OpenRouter's native Decisions endpoint and defaults to `typesafe/jev-1.13`.
 
+For any API that implements TypeSafe's `POST /v1/systemone` wire contract, prefer `--provider custom --endpoint <url>` over adding a provider-specific adapter. Compatible implementations include Von and Decider. The custom transport does not inject a default model; set `--model` or `JEV_MODEL` only when the endpoint expects one. It sends Bearer auth only when `JEV_API_KEY` is configured, and must not reuse `TYPESAFE_API_KEY` for arbitrary custom endpoints.
+
 Credentials belong in environment variables or a secret manager, never command-line arguments.
 
 ## Checklist
